@@ -24,6 +24,9 @@
   History
 
 $Log: not supported by cvs2svn $
+Revision 1.5  2005/07/07 13:33:52  ganovelli
+some comment
+
 Revision 1.4  2004/04/05 18:20:08  ganovelli
 Aggiunto typename
 
@@ -44,20 +47,20 @@ First Working Release (with this comment)
 namespace vcg {
 	/*@{*/
 /*!
- * This class represent a Traced Vector. A TVector is derived by a std::vector.
- * The characteristic of a TVector is that you can add (at run time) new attributes
+ * This class represent a Traced Vector. A vector_occ is derived by a std::vector.
+ * The characteristic of a vector_occ is that you can add (at run time) new attributes
  * to the container::value_type elements contained in the vector. (see the example..)
  * The position in memory of a traced vector is kept by the Container Allocation Table,
- * which is a (unique) list of TVector positions.
+ * which is a (unique) list of vector_occ positions.
  */
 
 template <class VALUE_TYPE>
-class TVector: public std::vector<VALUE_TYPE>{
-	typedef typename TVector<VALUE_TYPE> ThisType;
+class vector_occ: public std::vector<VALUE_TYPE>{
+	typedef typename vector_occ<VALUE_TYPE> ThisType;
 
 public:
-	TVector():std::vector<VALUE_TYPE>(){reserve(1);}
-	~TVector();
+	vector_occ():std::vector<VALUE_TYPE>(){reserve(1);}
+	~vector_occ();
 	
 
 	std::list < CATBase<ThisType>* > attributes;
@@ -71,10 +74,22 @@ public:
 	/// this function enable the use of an optional attribute (see...)
 	template <class ATTR_TYPE>
 		void EnableAttribute(){
-			CAT<ThisType,ATTR_TYPE> * cat = new CAT<ThisType,ATTR_TYPE>();
+			CAT<ThisType,ATTR_TYPE> * cat = CAT<ThisType,ATTR_TYPE>::New();
 			cat->Insert(*this);
 			attributes.push_back(cat);
 			}
+
+	/// this function disable the use of an optional attribute (see...)
+  /// Note: once an attribute is disabled, its data is lost (the memory freed)
+	template <class ATTR_TYPE>
+		void IsEnabledAttribute(){
+				std::list < CATBase<ThisType> * >::iterator ia; 
+				for(ia = attributes.begin(); ia != attributes.end(); ++ia)
+					if((*ia)->Id() == CAT<ThisType,ATTR_TYPE>::Id())
+						return true;
+				return false;
+				}
+
 
 	/// this function disable the use of an optional attribute (see...)
   /// Note: once an attribute is disabled, its data is lost (the memory freed)
@@ -85,7 +100,7 @@ public:
 					if((*ia)->Id() == CAT<ThisType,ATTR_TYPE>::Id())
 						{
 							(*ia)->Remove(*this);
-							delete (*ia);
+							//delete (*ia);
 							attributes.erase(ia);
 							break;
 						}
@@ -93,11 +108,11 @@ public:
 
 	/// this function create a new attribute of type ATTR_TYPE and return an handle to
   /// access the value of the attribute. Ex:
-  /// TVector<float> tv;
+  /// vector_occ<float> tv;
   /// TempData<TVect,int> handle =  tv.NewTempData<int>();
   /// // now handle[&tv[123]] is the value of integer attribute associate with the position 123 on the vector
   /// // NOTE: it works also if you do some push_back, resize, pop_back, reserve that cause the relocation
-  /// // of the TVector
+  /// // of the vector_occ
 	template <class ATTR_TYPE>
 		TempData<ThisType,ATTR_TYPE> NewTempData(){
 			typedef typename CATEntry<ThisType,EntryCATMulti<ThisType> >::EntryType EntryTypeMulti;
@@ -132,7 +147,7 @@ private:
 	/*@}*/
 
 template <class VALUE_TYPE>
-void TVector<VALUE_TYPE>::push_back(const VALUE_TYPE & v){
+void vector_occ<VALUE_TYPE>::push_back(const VALUE_TYPE & v){
 	std::vector<VALUE_TYPE>::push_back(v);
 	Update();	
 	std::list < CATBase<ThisType> * >::iterator ia; 
@@ -141,28 +156,29 @@ void TVector<VALUE_TYPE>::push_back(const VALUE_TYPE & v){
 
 }
 template <class VALUE_TYPE>
-void TVector<VALUE_TYPE>::pop_back(){
+void vector_occ<VALUE_TYPE>::pop_back(){
 	std::vector<VALUE_TYPE>::pop_back();
 	Update();
 }
 
 template <class VALUE_TYPE>
-void TVector<VALUE_TYPE>::resize(const unsigned int & size){
+void vector_occ<VALUE_TYPE>::resize(const unsigned int & size){
 	std::vector<VALUE_TYPE>::resize(size);
+	Update();
 	std::list < CATBase<ThisType> * >::iterator ia; 
 	for(ia = attributes.begin(); ia != attributes.end(); ++ia)
 		(*ia)->
-	Update();
+	Resize(&(*(this->begin())),size);
 }
 
 template <class VALUE_TYPE>
-void TVector<VALUE_TYPE>::reserve(const unsigned int & size){
+void vector_occ<VALUE_TYPE>::reserve(const unsigned int & size){
 	std::vector<VALUE_TYPE>::reserve(size);
 	Update();
 }
 
 template <class VALUE_TYPE>
-	void TVector<VALUE_TYPE>::
+	void vector_occ<VALUE_TYPE>::
 		Update(){
 		std::list < CATBase<ThisType> * >::iterator ia; 
 		if(&(*begin()) != old_start)
@@ -175,7 +191,7 @@ template <class VALUE_TYPE>
 
 
 template <class VALUE_TYPE>
-TVector<VALUE_TYPE>::~TVector(){
+vector_occ<VALUE_TYPE>::~vector_occ(){
 		std::list < CATBase<ThisType> * >::iterator ia; 
 		for(ia = attributes.begin(); ia != attributes.end(); ++ia)
 			{	

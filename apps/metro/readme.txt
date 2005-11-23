@@ -83,3 +83,17 @@ where "file1" and "file2" are the input meshes in PLY, OFF or STL format, and op
   -G         Use a static Uniform Grid as Search Structure (default)
   -A         Use an Axis Aligned Bounding Box Tree as Search Structure
   -H         Use an Hashed Uniform Grid as Search Structure
+  
+  
+The -C option is useful in combination with -c option for creating a set of 
+meshes with a coherent coloring scheme. 
+It sets how the errors are mapped into color according to the following formula, 
+let e be the error and ColorRamp be a R->RGB function mapping 0..1 values 
+into a smooth RedYellowGreenCyanBlue ramp:
+
+			e=Clamp(e,min,max);
+			VertexColor = ColorRamp( (e-min)/(max-min) );
+
+The Histogram files saved by the -h option contains two column of numbers 
+e_i and p_i; p_i denotes the fraction of the surface having an error 
+between e_i and e_{i+1}. The sum of the second column values should give 1.

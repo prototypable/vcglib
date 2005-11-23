@@ -24,6 +24,12 @@
   History
 
 $Log: not supported by cvs2svn $
+Revision 1.16  2005/11/15 12:09:17  rita_borgo
+Changed Volume Routine, before was returning negative values
+
+Revision 1.15  2005/10/03 16:00:08  rita_borgo
+Minor changes
+
 Revision 1.14  2005/03/18 16:37:46  fiorin
 Minor changes
 
@@ -71,7 +77,9 @@ Initial commit
 #ifndef __GNUC
 #pragma warning( disable : 4804 )
 #endif
+#include <assert.h>
 #include <vcg/space/box3.h>
+#include <vcg/space/color4.h>
 #include <vcg/math/shot.h>
 
 /*
@@ -123,8 +131,10 @@ class TriMesh{
 	Box3<ScalarType> bbox;
 	
   /// Nomi di textures
-	//vector<string> textures;
-	//vector<string> normalmaps;
+	//
+  std::vector<std::string> textures;
+	//
+  std::vector<std::string> normalmaps;
 
 		/// La camera
 	Camera<ScalarType> camera; // intrinsic
@@ -266,14 +276,14 @@ ScalarType Volume()
 	    B = ( (*fi).P( k     ) - (*fi).P(j) ) ^
 	        ( (*fi).P((k+1)%3) - (*fi).P(j) ) ;
 	    B.Normalize();
-	    N = T ^ B;
+			N = T ^ B;
      
 	    CoordType pj = (*fi).P(j);
 	    CoordType pk = (*fi).P(k);
    
 
-	    V +=  (pj*  T )*(pj*N)*(pj*B);
-	    V +=  (pk*(-T))*(pk*N)*(pk*B);
+	    V +=  (pk*  T )*(pk*N)*(pk*B);
+	    V +=  (pj*(-T))*(pj*N)*(pj*B);
      }
   }
 	return V/6.0;

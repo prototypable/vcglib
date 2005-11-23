@@ -24,6 +24,29 @@
   History
 
 $Log: not supported by cvs2svn $
+Revision 1.15  2005/11/18 15:44:51  cignoni
+Access to constant normal changed from by val to by reference
+
+Revision 1.14  2005/11/16 23:02:37  cignoni
+Added some missing members to EmptyMark
+Standardized name of flags. It is plural becouse each simplex has many flag.
+
+Revision 1.13  2005/11/14 23:50:57  cignoni
+Added Incremental Mark
+
+Revision 1.12  2005/11/12 18:35:49  cignoni
+Changed HasFlag -> HasFlags
+
+Revision 1.11  2005/11/01 18:17:52  cignoni
+Added an assert(0) in all the accesses to empty components
+
+Revision 1.10  2005/10/15 16:24:10  ganovelli
+Working release (compilata solo su MSVC), component_occ è migrato da component_opt
+
+Revision 1.9  2005/10/14 13:30:07  cignoni
+Added constant access functions and reflective functions (HasSomething stuff)
+to all the components This is the first really working version...
+
 Revision 1.8  2005/10/07 15:19:54  cignoni
 minor updates to keep it in line with the rest of the library
 
@@ -52,6 +75,9 @@ First working version!
 ****************************************************************************/
 #ifndef __VCG_VERTEX_PLUS_COMPONENT
 #define __VCG_VERTEX_PLUS_COMPONENT
+#include <vcg/space/point3.h>
+#include <vcg/space/tcoord2.h>
+#include <vcg/space/color4.h>
 
 namespace vcg {
   namespace vert {
@@ -68,8 +94,8 @@ public:
   typedef CoordType::ScalarType      ScalarType;
 
   CoordType &P() { static CoordType coord(0, 0, 0); return coord; }
-  const CoordType &P() const { static CoordType coord(0, 0, 0); return coord; }
-  const CoordType &cP() const { static CoordType coord(0, 0, 0); return coord; }
+  const CoordType &P() const { static CoordType coord(0, 0, 0);  assert(0); return coord; }
+  const CoordType &cP() const { static CoordType coord(0, 0, 0);  assert(0); return coord; }
   CoordType &UberP() { static CoordType coord(0, 0, 0); return coord; }
   static bool HasCoord()   { return false; }
 
@@ -96,8 +122,8 @@ template <class T> class Coord3d: public Coord<vcg::Point3d, T> {};
 template <class T> class EmptyNormal: public T {
 public:
   typedef vcg::Point3s NormalType;
-  NormalType &N() { static NormalType dummy_normal(0, 0, 0); return dummy_normal; }
-  const NormalType cN()const { static NormalType dummy_normal(0, 0, 0); return dummy_normal; }
+  NormalType &N() { static NormalType dummy_normal(0, 0, 0);  assert(0); return dummy_normal; }
+  const NormalType cN()const { static NormalType dummy_normal(0, 0, 0);  assert(0); return dummy_normal; }
   static bool HasNormal()   { return false; }
   static bool HasNormalOpt()   { return false; }
 };
@@ -105,7 +131,7 @@ template <class A, class T> class Normal: public T {
 public:
   typedef A NormalType;
   NormalType &N() { return _norm; }
-  const NormalType cN() const { return _norm; }
+  const NormalType &cN() const { return _norm; }
   static bool HasNormal()   { return true; }
 private:
   NormalType _norm;    
@@ -115,12 +141,36 @@ template <class T> class Normal3s: public Normal<vcg::Point3s, T> {};
 template <class T> class Normal3f: public Normal<vcg::Point3f, T> {};
 template <class T> class Normal3d: public Normal<vcg::Point3d, T> {};
 
-/*-------------------------- NORMAL ----------------------------------------*/ 
+
+/*-------------------------- INCREMENTAL MARK  ----------------------------------------*/ 
+
+template <class T> class EmptyMark: public T {
+public:
+  static bool HasMark()   { return false; }
+  static bool HasMarkOpt()   { return false; }
+  inline void InitIMark()    {  }
+  inline int & IMark()       { assert(0); static int tmp=-1; return tmp;}
+  inline const int & IMark() const {return 0;}
+
+};
+template <class T> class Mark: public T {
+public:
+  static bool HasMark()      { return true; }
+  static bool HasMarkOpt()   { return true; }
+  inline void InitIMark()    { _imark = 0; }
+  inline int & IMark()       { return _imark;}
+  inline const int & IMark() const {return _imark;}
+    
+ private:
+	int _imark;
+};
+
+/*-------------------------- TEXTURE ----------------------------------------*/ 
 
 template <class TT> class EmptyTexture: public TT {
 public:
   typedef vcg::TCoord2<float,1> TextureType;
-  TextureType &T() { static TextureType dummy_texture; return dummy_texture; }
+  TextureType &T() { static TextureType dummy_texture;  assert(0); return dummy_texture; }
   static bool HasTexture()   { return false; }
   static bool HasTextureOpt()   { return false; }
 
@@ -140,22 +190,23 @@ template <class TT> class Texture2f: public Texture<TCoord2<float,1>, TT> {};
 template <class TT> class Texture2d: public Texture<TCoord2<double,1>, TT> {};
 
 /*------------------------- FLAGS -----------------------------------------*/ 
-template <class T> class EmptyFlag: public T {
+template <class T> class EmptyBitFlags: public T {
 public:
 	typedef int FlagType;
   /// Return the vector of Flags(), senza effettuare controlli sui bit
-  int &Flags() { static int dummyflags(0); return dummyflags; }
+  int &Flags() { static int dummyflags(0);  assert(0); return dummyflags; }
   const int Flags() const { return 0; }
-  static bool HasFlag()   { return false; }
+  static bool HasFlags()   { return false; }
 
 };
 
-template <class T> class Flag:  public T {
+template <class T> class BitFlags:  public T {
 public:
-	typedef int FlagType;
+	BitFlags(){_flags=0;}
+  typedef int FlagType;
   int &Flags() {return _flags; }
   const int Flags() const {return _flags; }
-  static bool HasFlag()   { return true; }
+  static bool HasFlags()   { return true; }
 
 private:
   int  _flags;    
@@ -166,7 +217,7 @@ private:
 template <class T> class EmptyColor: public T {
 public:
   typedef vcg::Color4b ColorType;
-  ColorType &C() { static ColorType dumcolor(vcg::Color4b::White); return dumcolor; }
+  ColorType &C() { static ColorType dumcolor(vcg::Color4b::White); assert(0); return dumcolor; }
   static bool HasColor()   { return false; }
 };
 template <class A, class T> class Color: public T {
@@ -185,7 +236,7 @@ template <class T> class Color4b: public Color<vcg::Color4b, T> {};
 template <class T> class EmptyQuality: public T {
 public:
   typedef float QualityType;
-  QualityType &Q() { static QualityType dummyQuality(0); return dummyQuality; }
+  QualityType &Q() { static QualityType dummyQuality(0);  assert(0); return dummyQuality; }
   static bool HasQuality()   { return false; }
 };
 template <class A, class T> class Quality: public T {
@@ -207,8 +258,8 @@ template <class T> class Qualityd: public Quality<double, T> {};
 
 template <class T> class EmptyVFAdj: public T {
 public:
-  typename T::FacePointer &VFp() { static typename T::FacePointer fp=0; return fp; }
-  typename T::FacePointer cVFp() { static typename T::FacePointer fp=0; return fp; }
+  typename T::FacePointer &VFp() { static typename T::FacePointer fp=0;  assert(0); return fp; }
+  typename T::FacePointer cVFp() { static typename T::FacePointer fp=0;  assert(0); return fp; }
   int &VFi(){static int z=0; return z;};
   static bool HasVFAdjacency()   {   return false; }
   static bool HasVFAdjacencyOpt()   {   return false; }

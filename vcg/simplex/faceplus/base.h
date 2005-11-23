@@ -24,6 +24,12 @@
   History
 
 $Log: not supported by cvs2svn $
+Revision 1.3  2005/11/12 18:42:18  cignoni
+Added ClearS and GetBBox
+
+Revision 1.2  2005/10/14 13:26:57  cignoni
+First Really Working version
+
 Revision 1.2  2004/04/03 13:33:55  cignoni
 Missing include
 
@@ -80,9 +86,10 @@ class FaceBase: public   face::EmptyVertexRef<
                          face::EmptyAdj<
                          face::EmptyColorQuality<
                          face::EmptyNormal<
-                         face::EmptyFlag<
+                         face::EmptyBitFlags<
+                         face::EmptyMark<
                          face::EmptyWedgeTexture<
-                         FaceTypeHolder <BVT, BET, BFT, BTT> > > > > > >{
+                         FaceTypeHolder <BVT, BET, BFT, BTT> > > > > > > >{
 };
 
 
@@ -219,6 +226,8 @@ public:
 	void SetB(int i)		{Flags() |=(BORDER0<<i);}
 	/// This funcion execute the inverse operation of SetS()
 	void ClearB(int i)	{Flags() &= (~(BORDER0<<i));}
+	/// Un-select a vertex
+	void ClearS()	{Flags() &= ~SELECTED;}
 	
 ///  Return the first bit that is not still used
 static int &LastBitFlag()
@@ -228,13 +237,13 @@ static int &LastBitFlag()
 		}
 
 /// allocate a bit among the flags that can be used by user.
-static inline int NewUserBit()
+static inline int NewBitFlag()
 		{
 			LastBitFlag()=LastBitFlag()<<1;
 			return LastBitFlag();
 		}
 // de-allocate a bit among the flags that can be used by user.
-static inline bool DeleteUserBit(int bitval)
+static inline bool DeleteBitFlag(int bitval)
 		{	
 			if(LastBitFlag()==bitval) {
 					LastBitFlag()= LastBitFlag()>>1;
@@ -250,7 +259,14 @@ static inline bool DeleteUserBit(int bitval)
 	/// This function clear the given user bit 
 	void ClearUserBit(int userBit){Flags() &= (~userBit);}
 
-          };
+  template<class BoxType>
+  void GetBBox( BoxType & bb ) const
+  {
+	  bb.Set(P(0));
+	  bb.Add(P(1));
+	  bb.Add(P(2));
+  }
+ };
 
 
 template < typename T=int>

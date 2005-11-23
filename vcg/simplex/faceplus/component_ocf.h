@@ -24,6 +24,15 @@
   History
 
 $Log: not supported by cvs2svn $
+Revision 1.3  2005/11/16 22:43:36  cignoni
+Added WedgeTexture component
+
+Revision 1.2  2005/10/22 13:16:46  cignoni
+Added a missing ';' in  FFAdjOcf (thanks to Mario Latronico).
+
+Revision 1.1  2005/10/14 15:07:58  cignoni
+First Really Working version
+
 
 ****************************************************************************/
 
@@ -57,6 +66,7 @@ public:
 	vector_ocf():std::vector<VALUE_TYPE>(){
   ColorEnabled=false;
   NormalEnabled=false;
+  WedgeTexEnabled=false;
   VFAdjacencyEnabled=false;
   FFAdjacencyEnabled=false;
   }
@@ -83,6 +93,7 @@ public:
     if(NormalEnabled)      NV.resize(_size);
     if(VFAdjacencyEnabled) AV.resize(_size);
     if(FFAdjacencyEnabled) AF.resize(_size);
+    if (WedgeTexEnabled) WTV.resize(_size);
     
    }
   void reserve(const unsigned int & _size)
@@ -93,6 +104,7 @@ public:
     if (NormalEnabled)      NV.reserve(_size);
     if (VFAdjacencyEnabled) AV.reserve(_size);
     if (FFAdjacencyEnabled) AF.reserve(_size);
+    if (WedgeTexEnabled) WTV.reserve(_size);
     if(oldbegin!=begin()) _update(begin(),end());
   }
 
@@ -107,25 +119,25 @@ public:
 // Enabling Eunctions
 
 void EnableColor() {
-  assert(VALUE_TYPE::HasColorOcf());
+  assert(VALUE_TYPE::HasFaceColorOcf());
   ColorEnabled=true;
   CV.resize(size());
 }
 
 void DisableColor() {
-  assert(VALUE_TYPE::HasColorOcf());
+  assert(VALUE_TYPE::HasFaceColorOcf());
   ColorEnabled=false;
   CV.clear();
 }
 
 void EnableNormal() {
-  assert(VALUE_TYPE::HasNormalOcf());
+  assert(VALUE_TYPE::HasFaceNormalOcf());
   NormalEnabled=true;
   NV.resize(size());
 }
 
 void DisableNormal() {
-  assert(VALUE_TYPE::HasNormalOcf());
+  assert(VALUE_TYPE::HasFaceNormalOcf());
   NormalEnabled=false;
   NV.clear();
 }
@@ -156,6 +168,17 @@ void DisableFFAdjacency() {
 }
 
 
+void EnableWedgeTex() {
+  assert(VALUE_TYPE::HasWedgeTexture());
+  WedgeTexEnabled=true;
+  WTV.resize(size());
+}
+
+void DisableWedgeTex() {
+  assert(VALUE_TYPE::HasWedgeTexture());
+  WedgeTexEnabled=false;
+  WTV.clear();
+}
 
 struct AdjType {
   typename VALUE_TYPE::FacePointer _fp[3] ;    
@@ -167,9 +190,11 @@ public:
   std::vector<typename VALUE_TYPE::NormalType> NV;
   std::vector<struct AdjType> AV;
   std::vector<struct AdjType> AF;
+  std::vector<typename VALUE_TYPE::TexCoordType> WTV;
 
   bool ColorEnabled;
   bool NormalEnabled;
+  bool WedgeTexEnabled;
   bool VFAdjacencyEnabled;
   bool FFAdjacencyEnabled;
 };
@@ -212,7 +237,7 @@ public:
     return Base().AF[Index()]._fp[j]; 
   }
 
-  typename T::FacePointer const  FFp(const int j) const { return cFFp(j)}
+  typename T::FacePointer const  FFp(const int j) const { return cFFp(j);}
   typename T::FacePointer const cFFp(const int j) const {
     if(! Base().FFAdjacencyEnabled ) return 0; 
     else return Base().AF[Index()]._fp[j]; 
@@ -233,13 +258,19 @@ private:
 template <class A, class T> class NormalOcf: public T {
 public:
   typedef A NormalType;
-  static bool HasNormal()   { return true; }
-  static bool HasNormalOcf()   { return true; }
+  static bool HasFaceNormal()   { return true; }
+  static bool HasFaceNormalOcf()   { return true; }
 
   NormalType &N() { 
     // you cannot use Normals before enabling them with: yourmesh.face.EnableNormal()
     assert(Base().NormalEnabled); 
     return Base().NV[Index()];  }
+  const NormalType &cN() const { 
+    // you cannot use Normals before enabling them with: yourmesh.face.EnableNormal()
+    assert(Base().NormalEnabled); 
+    return Base().NV[Index()];  }
+
+
 };
 
 template <class T> class Normal3sOcf: public NormalOcf<vcg::Point3s, T> {};
@@ -252,11 +283,24 @@ template <class A, class T> class ColorOcf: public T {
 public:
   typedef A ColorType;
   ColorType &C() { assert(Base().NormalEnabled); return Base().CV[Index()]; }
-  static bool HasColor()   { return true; }
-  static bool HasColorOcf()   { return true; }
+  static bool HasFaceColor()   { return true; }
+  static bool HasFaceColorOcf()   { return true; }
 };
 
 template <class T> class Color4bOcf: public ColorOcf<vcg::Color4b, T> {};
+
+
+///*-------------------------- WEDGE TEXCOORD  ----------------------------------*/ 
+
+template <class A, class TT> class WedgeTextureOcf: public TT {
+public:
+  typedef A TexCoordType;
+  TexCoordType &WT(const int i)              { assert(Base().WedgeTexEnabled); return Base().WTV[Index()]; }
+  TexCoordType const &cWT(const int i) const { assert(Base().WedgeTexEnabled); return Base().WTV[Index()]; }
+  static bool HasWedgeTexture()   { return true; }
+};
+
+template <class T> class WedgeTexturefOcf: public WedgeTextureOcf<TCoord2<float,1>, T> {};
 
 ///*-------------------------- InfoOpt  ----------------------------------*/ 
 

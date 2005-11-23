@@ -24,6 +24,12 @@
   History
 
 $Log: not supported by cvs2svn $
+Revision 1.19  2005/11/10 15:49:32  cignoni
+Made IsManifold Constant
+
+Revision 1.18  2005/10/13 08:34:19  cignoni
+Removed reference to IsBorder() member of face and substituted with the face templated function version.
+
 Revision 1.17  2005/04/11 09:17:24  pietroni
 Changed detach to FFdetach , compiled tested in manifold cases
 
@@ -82,7 +88,7 @@ template <class FaceType>
 inline bool IsManifold( FaceType const & f, const int j ) 
 {
   if(FaceType::HasFFAdjacency())
-	  return ( f.FFp(j) == &f || &f == f.FFp(j)->FFp(f.FFi(j)) );
+	  return ( f.cFFp(j) == &f || &f == f.cFFp(j)->cFFp(f.cFFi(j)) );
   else 
     return true;
 }
@@ -299,7 +305,7 @@ static void FlipEdge(FaceType &f, const int z)
 {	
 	assert(z>=0);
 	assert(z<3);
-	assert( !f.IsBorder(z) );
+	assert( !IsBorder(f,z) );
 	assert( face::IsManifold<FaceType>(f, z));
 
  	FaceType *g = f.FFp(z);

@@ -24,6 +24,26 @@
 History
 
 $Log: not supported by cvs2svn $
+Revision 1.12  2005/11/17 00:41:07  cignoni
+Removed Initialize use updateflags::Clear() instead.
+
+Revision 1.11  2005/11/16 16:33:23  rita_borgo
+Changed ComputeSelfintersection
+
+Revision 1.10  2005/11/15 12:16:34  rita_borgo
+Changed DegeneratedFaces, sets the D flags for each faces
+that is found to be degenerated.
+CounEdges and ConnectedComponents check now if a face IsD()
+else for degenerated faces many asserts fail.
+
+Revision 1.9  2005/11/14 09:28:18  cignoni
+changed access to face functions (border, area)
+removed some typecast warnings
+
+Revision 1.8  2005/10/11 16:03:40  rita_borgo
+Added new functions belonging to triMeshInfo
+Started the Self-Intersection routine
+
 Revision 1.7  2005/10/03 15:57:53  rita_borgo
 Alligned with TriMeshInfo Code
 
@@ -54,7 +74,9 @@ Initial Release
 #include <map>
 #include <algorithm>
 
+
 #include <vcg/simplex/face/face.h>
+#include<vcg/simplex/face/topology.h>
 #include <vcg/complex/trimesh/base.h>
 #include <vcg/complex/trimesh/closest.h>
 #include <vcg/space/index/grid_static_ptr.h>
@@ -93,26 +115,13 @@ namespace vcg {
 			vcg::face::Pos<FaceType> hei;
 
 			/* classe di confronto per l'algoritmo di eliminazione vertici duplicati*/
-			template <class VertexIterator>
 			class RemoveDuplicateVert_Compare{
 			public:
-				inline bool operator() (VertexIterator a, VertexIterator b)
+				inline bool operator()(VertexPointer &a, VertexPointer &b)
 				{
-					return *a < *b;
+					return (*a).cP() < (*b).cP();
 				}
 			};
-
-			static void Initialize(MeshType& m)
-			{
-				FaceIterator fi;
-				for(fi=m.face.begin();fi!=m.face.end();fi++)
-				{
-					(*fi).ClearB(0);
-					(*fi).ClearB(1);
-					(*fi).ClearB(2);
-					(*fi).ClearS();
-				}
-			}
 
 			static int DetectUnreferencedVertex( MeshType& m )   // V1.0
 			{
@@ -147,12 +156,12 @@ namespace vcg {
 				VertexIterator vi; 
 				int deleted=0;
 				int k=0;
-				int num_vert = m.vert.size();
+				size_t num_vert = m.vert.size();
 				std::vector<VertexPointer> perm(num_vert);
 				for(vi=m.vert.begin(); vi!=m.vert.end(); ++vi, ++k)
 					perm[k] = &(*vi);
 
-				RemoveDuplicateVert_Compare<VertexPointer> c_obj;
+				RemoveDuplicateVert_Compare c_obj;
 
 				std::sort(perm.begin(),perm.end(),c_obj);
 
@@ -258,11 +267,13 @@ namespace vcg {
 				bool counted =false;
 				for(fi=m.face.begin();fi!=m.face.end();fi++)
 				{
+					if(!((*fi).IsD()))
+					{
 					(*fi).SetS();
 					count_e +=3; //assume that we have to increase the number of edges with three
 					for(int j=0; j<3; j++)
 					{
-						if (fi->IsBorder(j)) //If this edge is a border edge
+            if (face::IsBorder(*fi,j)) //If this edge is a border edge
 							boundary_e++; // then increase the number of boundary edges
 						else if (IsManifold(*fi,j))//If this edge is manifold
 						{
@@ -293,6 +304,7 @@ namespace vcg {
 							}
 						}
 					}
+					}
 				}
 			}
 
@@ -321,7 +333,7 @@ namespace vcg {
 					{
 						if(fi->V(j)->IsS()) continue;
 
-						if((*fi).IsBorder(j))//found an unvisited border edge
+            if(face::IsBorder(*fi,j))//found an unvisited border edge
 						{
 							he.Set(&(*fi),j,fi->V(j)); //set the face-face iterator to the current face, edge and vertex
 							vector<Point3x> hole; //start of a new hole
@@ -339,7 +351,7 @@ namespace vcg {
 									//cut and paste the additional hole.
 									vector<Point3x> hole2;
 									int index = find(hole.begin(),hole.end(),newpoint) - hole.begin();
-									for(int i=index; i<hole.size(); i++)
+									for(unsigned int i=index; i<hole.size(); i++)
 										hole2.push_back(hole[i]);
 
 									hole.resize(index);
@@ -388,6 +400,8 @@ namespace vcg {
 				MeshType::FaceType *l;
 				for(fi=m.face.begin();fi!=m.face.end();++fi)
 				{
+					if(!((*fi).IsD()))
+					{
 					if (!(*fi).IsS())
 					{
 						(*fi).SetS();
@@ -401,7 +415,7 @@ namespace vcg {
 							sf.pop();
 							for(int j=0;j<3;++j)
 							{
-								if( !(*gi).IsBorder(j) )
+								if( !face::IsBorder(*gi,j) )
 								{
 									l=he.f->FFp(j);
 									if( !(*l).IsS() )
@@ -414,6 +428,7 @@ namespace vcg {
 						}
 						Compindex++;
 					}
+					}
 				}
 				return Compindex;
 			}
@@ -425,16 +440,45 @@ namespace vcg {
 
 
 				for(fi=m.face.begin(); fi!=m.face.end();++fi)
-					if((*fi).Area() == 0)
+					if(Area<FaceType>(*fi) == 0)
+					{
 						count_fd++;
+						fi->SetD();
+						m.fn--;
+					}
 				return count_fd;
 			}
+      /**
+      GENUS: A topologically invariant property of a surface defined as:
+      the largest number of nonintersecting simple closed curves that can be drawn on the surface without separating it. 
+      Roughly speaking, it is the number of holes in a surface. 
+      The genus g of a surface, also called the geometric genus, is related to the Euler characteristic $chi$ by $chi==2-2g$.
+      
+      The genus of a connected, orientable surface is an integer representing the maximum number of cuttings along closed 
+      simple curves without rendering the resultant manifold disconnected. It is equal to the number of handles on it.
 
-			static float MeshGenus(MeshType &m, int count_uv, int numholes, int numcomponents, int count_e)
+    */  
+			static int MeshGenus(MeshType &m, int count_uv, int numholes, int numcomponents, int count_e)
 			{
 				int eulernumber = (m.vn-count_uv) + m.fn - count_e;
-				return(-( 0.5 * (eulernumber - numholes) - numcomponents ));
+				return int(-( 0.5 * (eulernumber - numholes) - numcomponents ));
 			}
+/*
+Let a closed surface have genus g. Then the polyhedral formula generalizes to the Poincaré formula
+chi=V-E+F,	(1)
+
+where
+chi(g)==2-2g	(2)
+
+is the Euler characteristic, sometimes also known as the Euler-Poincaré characteristic. 
+The polyhedral formula corresponds to the special case g==0.
+*/
+
+      static int EulerCharacteristic()
+      {
+
+      }
+
 
 			static void IsRegularMesh(MeshType &m, bool Regular, bool Semiregular)
 			{
@@ -450,7 +494,7 @@ namespace vcg {
 					for (int j=0; j<3; j++)
 					{
 						he.Set(&(*fi),j,fi->V(j));
-						if (!(*fi).IsBorder(j) && !(*fi).IsBorder((j+2)%3) && !fi->V(j)->IsS())
+						if (!face::IsBorder(*fi,j) && !face::IsBorder(*fi,(j+2)%3) && !fi->V(j)->IsS())
 						{
 							hei=he;
 							inc=1;
@@ -512,7 +556,7 @@ namespace vcg {
 							sf.pop();
 							for(int j=0;j<3;++j)
 							{
-								if( !(*gi).IsBorder(j) )
+								if( !face::IsBorder(*gi,j) )
 								{
 									he.Set(&(*gi),0,gi->V(0));
 									l=he.f->FFp(j);
@@ -587,9 +631,10 @@ namespace vcg {
 				TriMeshGrid   gM;
 
 				int nelem;
-				bbox = m.bbox;
-				double bdiag = bbox.Diag();
 				
+				double bdiag = m.bbox.Diag();
+
+				bbox.SetNull();
 				FaceType   *f=0;
 				Point3x             normf, bestq, ip,p;
 				FaceIterator fi;
@@ -597,29 +642,41 @@ namespace vcg {
 				
 
 				std::vector<FaceType*> ret;
-				std::vector<FaceType*> inCell;
+				std::vector<FaceType*> inBox;
 				gM.Set<vector<FaceType>::iterator>(m.face.begin(),m.face.end());
 
+				
+				
 				for(fi=m.face.begin();fi!=m.face.end();++fi)
 				{
 					
-		//			f = vcg::trimesh::GetClosestFace<MeshType,TriMeshGrid>(m, gM, p, bdiag, bdiag, normf, bestq, ip);
+					
+					(*fi).GetBBox(bbox);
+					vcg::trimesh::GetInBoxFace(m, gM, bbox,inBox);
+					
 				// fill the cell
 /*....*/
-					nelem = inCell.size();
+			
+
+					nelem = inBox.size();
+
+
 					if (nelem>=2)// in a cell
 					{
 						//test combinations of elements
 						for (int i=0;i<nelem-1;i++)
 							for (int j=i+1;j<nelem;j++)
-							if ((!inCell[i]->IsD())&&(!inCell[j]->IsD())&&(TestIntersection(inCell[i],inCell[j])))
+							if ((!inBox[i]->IsD())&&(!inBox[j]->IsD())&&(TestIntersection(inBox[i],inBox[j])))
 							{
-								ret.push_back(inCell[i]);
-								ret.push_back(inCell[j]);
+							
+								ret.push_back(inBox[i]);
+								ret.push_back(inBox[j]);
 							}
 					}
+					inBox.clear();
+					bbox.SetNull();
 				}	
-				return false;
+				return (ret.size()>0);
 			}
 
 				
@@ -628,8 +685,8 @@ static	bool TestIntersection(FaceType *f0,FaceType *f1)
 	{
 		assert((!f0->IsD())&&(!f1->IsD()));
 		//no adiacent faces
-		if ((f0!=f1)&& (!ShareEdge(f0,f1))
-			&& (!ShareVertex(f0,f1)))
+		if ( (f0!=f1) && (!ShareEdge(f0,f1))
+			&& (!ShareVertex(f0,f1)) )
 			return (vcg::Intersection<FaceType>((*f0),(*f1)));
 		return false;
 	}

@@ -25,6 +25,12 @@
 History
 
 $Log: not supported by cvs2svn $
+Revision 1.6  2005/10/15 19:14:35  m_di_benedetto
+Modified objapplyfunctor to nodeapplyfunctor.
+
+Revision 1.5  2005/10/05 01:59:56  m_di_benedetto
+First Commit, new version.
+
 Revision 1.3  2005/09/29 22:20:49  m_di_benedetto
 Removed '&' in FrustumCull() method.
 
@@ -39,6 +45,9 @@ First Commit.
 
 #ifndef __VCGLIB_AABBBINARYTREE_FRUSTUMCULL_H
 #define __VCGLIB_AABBBINARYTREE_FRUSTUMCULL_H
+
+// std headers
+/* EMPTY */
 
 // vcg headers
 #include <vcg/space/point3.h>
@@ -74,9 +83,10 @@ protected:
 
 public:
 	enum {
-		FC_FIRST_PLANE_BIT = 0,
-		FC_PARTIALLY_VISIBLE_BIT = (1 << (FC_FIRST_PLANE_BIT + 3)),
-		FC_FULLY_VISIBLE_BIT = (1 << (FC_FIRST_PLANE_BIT + 4))
+		FC_FIRST_PLANE_BIT					= 0,
+		FC_PARTIALLY_VISIBLE_BIT		= (1 << (FC_FIRST_PLANE_BIT + 3)),
+		FC_FULLY_VISIBLE_BIT				= (1 << (FC_FIRST_PLANE_BIT + 4)),
+		FC_PASS_THROUGH_FIRST_BIT		= (FC_FIRST_PLANE_BIT + 5)
 	};
 
 	static inline bool IsPartiallyVisible(const NodeType * node) {
@@ -91,6 +101,10 @@ public:
 		return ((node->Flags() & (FC_PARTIALLY_VISIBLE_BIT | FC_FULLY_VISIBLE_BIT)) != 0);
 	}
 
+	static inline unsigned int PassThrough(const NodeType * node) {
+		return ((node->Flags() >> FC_PASS_THROUGH_FIRST_BIT) & 0x03);
+	}
+
 	static inline void Initialize(TreeType & tree) {
 		NodeType * pRoot = tree.pRoot;
 		if (pRoot == 0) {
@@ -99,8 +113,8 @@ public:
 		ClassType::InitializeNodeFlagsRec(pRoot);
 	}
 
-	template <class OBJAPPLYFUNCTOR>
-	static inline void FrustumCull(TreeType & tree, const Point3<ScalarType> & viewerPosition, const Plane3<ScalarType> frustumPlanes[6], const unsigned int minNodeObjectsCount, OBJAPPLYFUNCTOR & objApply) {
+	template <class NODEAPPLYFUNCTOR>
+	static inline void FrustumCull(TreeType & tree, const Point3<ScalarType> & viewerPosition, const Plane3<ScalarType> frustumPlanes[6], const unsigned int minNodeObjectsCount, NODEAPPLYFUNCTOR & nodeApply) {
 		NodeType * pRoot = tree.pRoot;
 		if (pRoot == 0) {
 			return;
@@ -116,13 +130,14 @@ public:
 		}
 
 		const unsigned char inMask = 0x3F;
-		ClassType::NodeVsFrustum(tree.pRoot, viewerPosition, frustum, inMask, minNodeObjectsCount, objApply);
+		ClassType::NodeVsFrustum(tree.pRoot, viewerPosition, frustum, inMask, minNodeObjectsCount, nodeApply);
 	}
 
 protected:
 
 	static inline void InitializeNodeFlagsRec(NodeType * node) {
-		node->Flags() &= ~(0x1F);
+		//node->Flags() &= ~(0x7F);
+		node->Flags() = 0;
 		if (node->children[0] != 0) {
 			ClassType::InitializeNodeFlagsRec(node->children[0]);
 		}
@@ -131,8 +146,8 @@ protected:
 		}
 	}
 
-	template <class OBJAPPLYFUNCTOR>
-	static inline void NodeVsFrustum(NodeType * node, const Point3<ScalarType> & viewerPosition, const VFrustum & f, unsigned char inMask, unsigned int minNodeObjectsCount, OBJAPPLYFUNCTOR & objApply) {
+	template <class NODEAPPLYFUNCTOR>
+	static inline void NodeVsFrustum(NodeType * node, const Point3<ScalarType> & viewerPosition, const VFrustum & f, unsigned char inMask, unsigned int minNodeObjectsCount, NODEAPPLYFUNCTOR & nodeApply) {
 		if (node == 0) {
 			return;
 		}
@@ -147,7 +162,7 @@ protected:
 		unsigned char newMask = 0x0;
 		bool fullInside = true;
 
-		node->Flags() &= ~(FC_PARTIALLY_VISIBLE_BIT | FC_FULLY_VISIBLE_BIT);
+		node->Flags() &= ~(FC_PARTIALLY_VISIBLE_BIT | FC_FULLY_VISIBLE_BIT | (0x03 << FC_PASS_THROUGH_FIRST_BIT));
 
 		if ((k & inMask) != 0) {
 			if (
@@ -196,11 +211,9 @@ protected:
 			}
 		}
 
-		if (fullInside || (node->ObjectsCount() <= minNodeObjectsCount)) {
+		if (fullInside || (node->IsLeaf()) || (node->ObjectsCount() <= minNodeObjectsCount)) {
 			node->Flags() |= FC_FULLY_VISIBLE_BIT;
-			for (typename TreeType::ObjPtrVectorConstIterator oi=node->oBegin; oi!=node->oEnd; ++oi) {
-				objApply(*(*oi));
-			}
+			nodeApply(*node);
 			return;
 		}
 
@@ -218,15 +231,25 @@ protected:
 		}
 
 		if (dt <= (ScalarType)0) {
-			ClassType::NodeVsFrustum(node->children[0], viewerPosition, f, newMask, minNodeObjectsCount, objApply);
-			ClassType::NodeVsFrustum(node->children[1], viewerPosition, f, newMask, minNodeObjectsCount, objApply);
+			ClassType::NodeVsFrustum(node->children[0], viewerPosition, f, newMask, minNodeObjectsCount, nodeApply);
+			ClassType::NodeVsFrustum(node->children[1], viewerPosition, f, newMask, minNodeObjectsCount, nodeApply);
 		}
 		else {
-			ClassType::NodeVsFrustum(node->children[1], viewerPosition, f, newMask, minNodeObjectsCount, objApply);
-			ClassType::NodeVsFrustum(node->children[0], viewerPosition, f, newMask, minNodeObjectsCount, objApply);
+			ClassType::NodeVsFrustum(node->children[1], viewerPosition, f, newMask, minNodeObjectsCount, nodeApply);
+			ClassType::NodeVsFrustum(node->children[0], viewerPosition, f, newMask, minNodeObjectsCount, nodeApply);
 		}
 
-		return;
+		const bool c0 = (node->children[0] != 0) && ClassType::IsVisible(node->children[0]);
+		const bool c1 = (node->children[1] != 0) && ClassType::IsVisible(node->children[1]);
+
+		if (c0 != c1) {
+			if (c0) {
+				node->Flags() |= (0x01 << FC_PASS_THROUGH_FIRST_BIT);
+			}
+			else {
+				node->Flags() |= (0x02 << FC_PASS_THROUGH_FIRST_BIT);
+			}
+		}
 	}
 
 };

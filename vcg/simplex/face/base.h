@@ -24,6 +24,18 @@
   History
 
 $Log: not supported by cvs2svn $
+Revision 1.33  2005/11/22 15:47:35  cignoni
+Moved ComputeNormal and ComputeNormalizedNormal out of the face class (no more a member function!)
+
+Revision 1.32  2005/11/12 18:39:54  cignoni
+Added dummy static member for avoiding annoying warning in empty functions...
+
+Revision 1.31  2005/11/01 18:16:36  cignoni
+Added intialization of _flags to zero in the default constructor of face
+
+Revision 1.30  2005/10/13 09:25:43  cignoni
+Added cFFp and cVFp const member functions
+
 Revision 1.29  2005/09/28 19:32:09  m_di_benedetto
 Added const qualifier in GetBBox method.
 
@@ -162,7 +174,7 @@ public:
 	typedef Box3<ScalarType> BoxType;
 	
   /// Default Empty Costructor
-  inline FACE_TYPE(){}
+  inline FACE_TYPE(){_flags=0;}
 
 	/// This are the _flags of face, the default value is 0
 	int  _flags;		
@@ -317,24 +329,6 @@ public:
 	return *(CoordType *)0;
 #endif
 	}
-
-  /// Calculate the normal to the face, the value is store in the field _n of the face
-void ComputeNormal() 
-{
-#ifdef __VCGLIB_FACE_FN
-	_n = vcg::Normal(*this);
-#else
-	assert(0);
-#endif
-}
-void ComputeNormalizedNormal() 
-{
-#ifdef __VCGLIB_FACE_FN
-	_n = vcg::NormalizedNormal(*this);
-#else
-	assert(0);
-#endif
-}
 
 /// Return the value of the face normal as it correspond to the current geometry.
 /// it is always computed and never stored. 
@@ -655,7 +649,8 @@ public:
 		return fs[j];
 #else
 		assert(0);
-		return (FFTYPE *)this;
+    static FFTYPE * DummyVal;
+		return DummyVal;
 #endif
 	}
   inline const FFTYPE * cVFp( const int j ) const {return VFp(j);}
@@ -696,6 +691,8 @@ public:
 		return *(char *)&_flags;
 #endif
 	}
+
+	inline const char & cFFi( const int j ) const {return FFi(j);}
 
 		/** Return the index that the face have in the j-th adjacent face.
 	    @param j Index of the edge.
@@ -1216,7 +1213,17 @@ inline void Nexts( BaseFaceType *&f,int &z )
 
 }; //end Class
 
+/// Calculate the normal to the face, the value is store in the field _n of the face
+namespace face
+{
 
+template <class MyVertex, class MyEdge, class MyFace>
+void ComputeNormal(FACE_TYPE<MyVertex,MyEdge,MyFace> &f) {	f.N() = vcg::Normal< FACE_TYPE<MyVertex,MyEdge,MyFace> >(f); }
+
+template <class MyVertex, class MyEdge, class MyFace>
+void ComputeNormalizedNormal(FACE_TYPE<MyVertex,MyEdge,MyFace> &f) {	f.N() = vcg::NormalizedNormal< FACE_TYPE<MyVertex,MyEdge,MyFace> >(f); }
+
+}
 //@}
 
 }	 // end namespace
